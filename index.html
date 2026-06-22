@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Gym Tracker">
+<title>Gym Tracker</title>
+<style>
+  :root {
+    --green: #1D9E75; --green-light: #E1F5EE; --green-dark: #0F6E56;
+    --red: #E24B4A; --red-light: #FBEAF0; --red-dark: #A32D2D;
+    --blue: #3B4FC4; --blue-light: #EEF0F8;
+    --bg: #F7F6F2; --card: #FFFFFF; --border: #E5E4DF;
+    --text: #1A1A1A; --text2: #6B6B6B; --text3: #ABABAB;
+    --streak-bg: #E1F5EE; --streak-text: #085041;
+    --gray-pill: #F0EFEB;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121212; --card: #1E1E1E; --border: #2E2E2E;
+      --text: #F0F0F0; --text2: #A0A0A0; --text3: #555555;
+      --streak-bg: #0D3328; --streak-text: #5ECFAA;
+      --green-light: #0D3328; --red-light: #3A1010; --blue-light: #1A1F3A;
+      --gray-pill: #2A2A2A;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; min-height: 100vh; }
+  .container { max-width: 480px; margin: 0 auto; padding: 20px 16px 60px; }
+  .top-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
+  .t1 { font-size: 22px; font-weight: 700; color: var(--text); }
+  .t2 { font-size: 12px; color: var(--text2); margin-top: 3px; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; background: var(--streak-bg); color: var(--streak-text); padding: 6px 12px; border-radius: 20px; white-space: nowrap; }
+  .hint { font-size: 11px; color: var(--text2); margin-bottom: 16px; padding: 10px 12px; background: var(--card); border-radius: 12px; border: 0.5px solid var(--border); line-height: 1.6; }
+  .lock-note { color: var(--red); font-weight: 600; }
+  .month-grid { display: flex; flex-direction: column; gap: 12px; }
+  .month-card { background: var(--card); border: 0.5px solid var(--border); border-radius: 16px; padding: 14px 14px 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.05); }
+  .month-name { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+  .m-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 5px; margin-bottom: 10px; }
+  .ms { border-radius: 8px; padding: 6px 2px; text-align: center; }
+  .ms-hit { background: var(--green-light); } .ms-abs { background: var(--red-light); }
+  .ms-rem { background: var(--gray-pill); } .ms-tot { background: var(--blue-light); }
+  .ms-val { font-size: 15px; font-weight: 700; }
+  .ms-hit .ms-val { color: var(--green-dark); } .ms-abs .ms-val { color: var(--red-dark); }
+  .ms-rem .ms-val { color: var(--text2); } .ms-tot .ms-val { color: var(--blue); }
+  .ms-label { font-size: 8px; color: var(--text3); margin-top: 2px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+  .day-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; }
+  .dl { font-size: 8px; text-align: center; color: var(--text3); padding-bottom: 3px; font-weight: 600; }
+  .dl.sun { color: var(--red); opacity: .5; }
+  .dc { aspect-ratio: 1; border-radius: 4px; cursor: pointer; border: 0.5px solid var(--border); background: var(--gray-pill); display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--text3); font-weight: 500; position: relative; transition: transform 0.08s; user-select: none; -webkit-user-select: none; }
+  .dc:active:not(.sun-cell):not(.empty):not(.locked) { transform: scale(0.85); }
+  .dc.done { background: var(--green); border-color: var(--green-dark); color: #fff; font-weight: 700; }
+  .dc.absent { background: var(--red); border-color: var(--red-dark); color: #fff; font-weight: 700; }
+  .dc.today { border: 2px solid var(--green); }
+  .dc.today:not(.done):not(.absent) { color: var(--text); font-weight: 700; background: var(--bg); }
+  .dc.sun-cell { background: transparent; border-color: transparent; opacity: .2; cursor: default; color: var(--text3); }
+  .dc.empty { background: transparent; border-color: transparent; cursor: default; }
+  .dc.locked::after { content: '🔒'; position: absolute; bottom: 0px; right: 0px; font-size: 5.5px; line-height: 1; }
+  .dc.locked { cursor: not-allowed; opacity: 0.85; }
+  .dc.locked:active { transform: none !important; }
+  .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); background: rgba(26,26,26,0.92); color: #fff; padding: 10px 20px; border-radius: 22px; font-size: 13px; font-weight: 500; opacity: 0; transition: opacity 0.25s; pointer-events: none; z-index: 999; white-space: nowrap; backdrop-filter: blur(8px); }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="top-header">
+    <div>
+      <div class="t1">Gym Tracker 💪</div>
+      <div class="t2">Mon–Sat · Jun 21 – Dec 31, 2026</div>
+    </div>
+    <div class="badge">🔥 <span id="badge-streak">0 day streak</span></div>
+  </div>
+
+  <div class="hint">
+    Tap any gym day → 🟢 Done → 🔴 Absent → Clear<br>
+    <span class="lock-note">🔒 Entries lock permanently after 3 hours</span><br>
+    Long-press a marked day to see time remaining before lock
+  </div>
+
+  <div class="month-grid" id="month-grid"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const START  = new Date(2026, 5, 21);
+const END    = new Date(2026, 11, 31);
+const MFULL  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAYS   = ['S','M','T','W','T','F','S'];
+const LOCK_MS = 3 * 60 * 60 * 1000;
+
+function dk(d)     { return `gx_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`; }
+function tk(d)     { return `gt_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`; }
+function isSun(d)  { return d.getDay() === 0; }
+function inRange(d){ return d >= START && d <= END; }
+function isGym(d)  { return inRange(d) && !isSun(d); }
+function isToday(d){ return d.toDateString() === new Date().toDateString(); }
+
+function load() { try { return JSON.parse(localStorage.getItem('gym_main') || '{}'); } catch(e) { return {}; } }
+function save(d){ try { localStorage.setItem('gym_main', JSON.stringify(d)); } catch(e) {} }
+
+let data = load();
+
+function isLocked(dt) {
+  const st = data[dk(dt)];
+  if (!st || st === 'clear') return false;
+  const ts = data[tk(dt)];
+  if (!ts) return false;
+  return (Date.now() - ts) >= LOCK_MS;
+}
+
+function timeLeftStr(dt) {
+  const ts = data[tk(dt)];
+  if (!ts) return '';
+  const left = LOCK_MS - (Date.now() - ts);
+  if (left <= 0) return '🔒 Entry is locked permanently';
+  const h = Math.floor(left / 3600000);
+  const m = Math.floor((left % 3600000) / 60000);
+  return `⏱ Locks in ${h}h ${m}m`;
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function cycleState(dt) {
+  const k = dk(dt), t = tk(dt);
+  const cur = data[k];
+  if (!cur || cur === 'clear') {
+    data[k] = 'done';
+    data[t] = Date.now();
+    showToast('✅ Marked as Done');
+  } else if (cur === 'done') {
+    data[k] = 'absent';
+    data[t] = Date.now();
+    showToast('❌ Marked as Absent');
+  } else {
+    data[k] = 'clear';
+    delete data[t];
+    showToast('🗑 Cleared');
+  }
+  save(data);
+}
+
+function buildMonths() {
+  const grid = document.getElementById('month-grid');
+  grid.innerHTML = '';
+  let cur = new Date(START.getFullYear(), START.getMonth(), 1);
+
+  while (cur <= END) {
+    const yr = cur.getFullYear(), mo = cur.getMonth();
+    const dim = new Date(yr, mo + 1, 0).getDate();
+    let mHit = 0, mAbs = 0, mTotal = 0;
+
+    for (let d = 1; d <= dim; d++) {
+      const dt = new Date(yr, mo, d);
+      if (isGym(dt) && inRange(dt)) {
+        mTotal++;
+        const st = data[dk(dt)];
+        if (st === 'done') mHit++;
+        else if (st === 'absent') mAbs++;
+      }
+    }
+    const mRem = mTotal - mHit - mAbs;
+
+    const card = document.createElement('div');
+    card.className = 'month-card';
+    card.innerHTML = `
+      <div class="month-name">${MFULL[mo]} ${yr}</div>
+      <div class="m-stats">
+        <div class="ms ms-hit"><div class="ms-val">${mHit}</div><div class="ms-label">Hit</div></div>
+        <div class="ms ms-abs"><div class="ms-val">${mAbs}</div><div class="ms-label">Absent</div></div>
+        <div class="ms ms-rem"><div class="ms-val">${mRem}</div><div class="ms-label">Left</div></div>
+        <div class="ms ms-tot"><div class="ms-val">${mTotal}</div><div class="ms-label">Total</div></div>
+      </div>`;
+
+    const dg = document.createElement('div');
+    dg.className = 'day-grid';
+    DAYS.forEach((dl, i) => {
+      const l = document.createElement('div');
+      l.className = 'dl' + (i === 0 ? ' sun' : '');
+      l.textContent = dl;
+      dg.appendChild(l);
+    });
+
+    const first = new Date(yr, mo, 1).getDay();
+    for (let i = 0; i < first; i++) {
+      const e = document.createElement('div'); e.className = 'dc empty'; dg.appendChild(e);
+    }
+
+    for (let d = 1; d <= dim; d++) {
+      const dt = new Date(yr, mo, d);
+      const cell = document.createElement('div');
+      cell.className = 'dc';
+      cell.textContent = d;
+
+      if (!inRange(dt)) {
+        cell.classList.add('empty');
+        cell.style.opacity = '0.1';
+      } else if (isSun(dt)) {
+        cell.classList.add('sun-cell');
+      } else {
+        const st = data[dk(dt)];
+        const locked = isLocked(dt);
+        if (isToday(dt))    cell.classList.add('today');
+        if (st === 'done')  cell.classList.add('done');
+        else if (st === 'absent') cell.classList.add('absent');
+        if (locked)         cell.classList.add('locked');
+
+        // Long press to show time left
+        let pressTimer;
+        cell.addEventListener('touchstart', (e) => {
+          pressTimer = setTimeout(() => {
+            const msg = timeLeftStr(dt);
+            if (msg) showToast(msg);
+          }, 500);
+        }, { passive: true });
+        cell.addEventListener('touchend',  () => clearTimeout(pressTimer));
+        cell.addEventListener('touchmove', () => clearTimeout(pressTimer));
+
+        cell.addEventListener('click', () => {
+          if (isLocked(dt)) { showToast('🔒 Locked — cannot be changed'); return; }
+          cycleState(dt);
+          buildMonths();
+          updateStreak();
+        });
+      }
+      dg.appendChild(cell);
+    }
+
+    card.appendChild(dg);
+    grid.appendChild(card);
+    cur.setMonth(cur.getMonth() + 1);
+  }
+}
+
+function updateStreak() {
+  let streak = 0;
+  let check = new Date();
+  check.setHours(0,0,0,0);
+  while (check >= START) {
+    if (isSun(check)) { check.setDate(check.getDate() - 1); continue; }
+    if (data[dk(check)] === 'done') { streak++; check.setDate(check.getDate() - 1); }
+    else break;
+  }
+  document.getElementById('badge-streak').textContent = streak + ' day streak';
+}
+
+buildMonths();
+updateStreak();
+// Refresh every minute so lock icons appear automatically
+setInterval(() => { buildMonths(); updateStreak(); }, 60000);
+</script>
+</body>
+</html>
